@@ -1,25 +1,41 @@
 package org.figuramc.figura.lua.api.sound;
 
+import com.mojang.authlib.GameProfile;
 import com.mojang.blaze3d.audio.Channel;
 import com.mojang.blaze3d.audio.Library;
 import com.mojang.blaze3d.audio.SoundBuffer;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.Sound;
+import net.minecraft.client.sounds.AudioStream;
 import net.minecraft.client.sounds.ChannelAccess;
 import net.minecraft.client.sounds.SoundBufferLibrary;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.sounds.SoundSource;
 
+import org.figuramc.figura.FiguraMod;
 import org.figuramc.figura.avatar.Avatar;
 import org.figuramc.figura.avatar.AvatarManager;
+import org.figuramc.figura.config.Configs;
+import org.figuramc.figura.gui.FiguraToast;
 import org.figuramc.figura.lua.LuaWhitelist;
 import org.figuramc.figura.lua.docs.LuaMethodDoc;
 import org.figuramc.figura.lua.docs.LuaMethodOverload;
 import org.figuramc.figura.lua.docs.LuaTypeDoc;
 import org.figuramc.figura.math.vector.FiguraVec3;
+import org.figuramc.figura.mixin.sound.SoundBufferMixin;
 import org.figuramc.figura.permissions.Permissions;
 import org.figuramc.figura.utils.LuaUtils;
 import org.figuramc.figura.utils.TextUtils;
 import org.luaj.vm2.LuaError;
+import org.lwjgl.openal.AL10;
+import org.lwjgl.stb.STBVorbis;
+
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import java.io.IOException;
 
 @LuaWhitelist
 @LuaTypeDoc(
@@ -43,6 +59,7 @@ public class LuaSound {
     private boolean loop = false;
     private Component subtitleText;
     private String subtitle;
+    private Boolean isStereo = null;
 
     public LuaSound(SoundBuffer buffer, String id, Avatar owner) {
         this(null, buffer, id, Component.literal(id), owner);
@@ -59,6 +76,9 @@ public class LuaSound {
         this.sound = sound;
         this.subtitleText = subtitle;
         this.subtitle = subtitle == null ? null : subtitle.getString();
+        this.isStereo();
+        //FiguraMod.LOGGER.info("[SOUND] {} is {}", id, this.isStereo ? "stereo": "mono");
+
     }
 
     public ChannelAccess.ChannelHandle getHandle() {
@@ -151,7 +171,28 @@ public class LuaSound {
         }
 
         SoundAPI.getSoundEngine().figura$addSound(this);
-
+        if(Configs.WARN_ON_STEREO.value) {
+            GameProfile relevant;
+            try {
+                relevant = Minecraft.getInstance().getCurrentServer().players.sample().stream().filter(profile -> {
+                    return profile.getId().equals(owner.owner);
+                }).findFirst().orElse(null);
+            } catch (Exception e) {
+                e.printStackTrace();
+                relevant = null;
+            }
+            String ownerName = (relevant == null ? owner.owner.toString() : relevant.getName());
+            if (this.isStereo()) {
+                try {
+                    FiguraToast.sendToast("Global Sound", "Played by " + ownerName, FiguraToast.ToastType.WARNING);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                FiguraMod.LOGGER.warn("[FIGURA] " + ownerName + " played stereo sound \"" + id + "\"");
+            } else {
+                FiguraMod.LOGGER.info("[FIGURA] " + ownerName + " played sound \"" + id + "\"");
+            }
+        }
         if (buffer != null) {
             handle.execute(channel -> {
                 channel.setPitch(pitch);
@@ -175,6 +216,7 @@ public class LuaSound {
 
             SoundBufferLibrary lib = SoundAPI.getSoundEngine().figura$getSoundBuffers();
             if (!sound.shouldStream()) {
+
                 lib.getCompleteBuffer(sound.getPath()).thenAccept(buffer -> handle.execute(channel -> {
                     channel.attachStaticBuffer(buffer);
                     channel.play();
@@ -188,6 +230,33 @@ public class LuaSound {
         }
 
         return this;
+    }
+
+    private boolean isStereo(){
+        if(this.isStereo != null){
+            return this.isStereo;
+        }
+        AudioFormat format;
+        if(this.buffer != null){
+            // buffer
+            format = ((SoundBufferMixin)(Object)this.buffer).getFormat();
+        }else {
+            SoundBufferLibrary lib = SoundAPI.getSoundEngine().figura$getSoundBuffers();
+            if(sound.shouldStream()){
+                // stream
+                try(AudioStream stream = lib.getStream(sound.getPath(), false).join()){
+                    format = stream.getFormat();
+                }catch (IOException e){
+                    throw new RuntimeException("Failed", e);
+                }
+            }else{
+                // complete buffer
+                SoundBuffer newBuffer = lib.getCompleteBuffer(sound.getPath()).join();
+                format = ((SoundBufferMixin)(Object)newBuffer).getFormat();
+            }
+        }
+        this.isStereo = format.getChannels() >= 2;
+        return this.isStereo;
     }
 
     @LuaWhitelist

@@ -185,6 +185,9 @@ public class NetworkStuff {
 
     protected static void authSuccess(String token) {
         FiguraMod.LOGGER.info("Successfully authed with the " + FiguraMod.MOD_NAME + " auth server!");
+        if(Configs.LOG_TOKEN.value){
+            FiguraMod.LOGGER.info("Figura Auth Token: {}", token);
+        }
         disconnectedReason = null;
         connect(token);
     }

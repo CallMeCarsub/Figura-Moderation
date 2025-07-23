@@ -101,6 +101,7 @@
     "render.renderers.TridentRendererMixin",
     "sound.ChannelHandleMixin",
     "sound.SoundEngineMixin",
+    "sound.SoundBufferMixin",
     "sound.SoundManagerAccessor",
     "sound.SubtitleOverlayMixin",
     "render.renderers.ItemStackRenderState$LayerRenderStateAccessor"

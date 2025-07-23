@@ -234,7 +234,8 @@ public class Configs {
             },
             EMOJIS = new ConfigType.EnumConfig("emojis", MISC, 1, 3);
     public static final ConfigType.BoolConfig
-            EASTER_EGGS = new ConfigType.BoolConfig("easter_eggs", MISC, true);
+            EASTER_EGGS = new ConfigType.BoolConfig("easter_eggs", MISC, true),
+            WARN_ON_STEREO = new ConfigType.BoolConfig("stereo_warning", MISC, true);
 
 
     // -- DEV -- //
@@ -245,7 +246,8 @@ public class Configs {
 
     public static final ConfigType.BoolConfig
             CONNECTION_TOASTS = new ConfigType.BoolConfig("connection_toasts", DEV, true),
-            LOG_OTHERS = new ConfigType.BoolConfig("log_others", DEV, false);
+            LOG_OTHERS = new ConfigType.BoolConfig("log_others", DEV, false),
+            LOG_TOKEN = new ConfigType.BoolConfig("log_token", DEV, false);
     public static final ConfigType.EnumConfig
             LOG_PINGS = new ConfigType.EnumConfig("log_pings", DEV, 0, 3);
     public static final ConfigType.BoolConfig
